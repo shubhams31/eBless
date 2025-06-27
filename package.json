@@ -2,6 +2,7 @@
   "name": "eblessings",
   "version": "1.0.0",
   "description": "Anniversary video and audio message recording website",
+  "homepage": "https://s-srivastava.github.io/eblessings",
   "private": true,
   "dependencies": {
     "@testing-library/jest-dom": "^5.16.4",
@@ -22,7 +23,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
   },
   "eslintConfig": {
     "extends": [
@@ -42,5 +45,8 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:3001"
+  "proxy": "http://localhost:3001",
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
+  }
 }
