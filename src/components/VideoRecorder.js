@@ -1,6 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import styled from 'styled-components';
-import { FaPlay, FaStop, FaRedo, FaVideo, FaDownload } from 'react-icons/fa';
+import { FaPlay, FaStop, FaRedo, FaVideo, FaDownload, FaSync } from 'react-icons/fa';
 
 const RecorderContainer = styled.div`
   margin: 24px 0;
@@ -112,56 +112,60 @@ function VideoRecorder({ onMediaRecorded }) {
   const [recordedBlob, setRecordedBlob] = useState(null);
   const [stream, setStream] = useState(null);
   const [error, setError] = useState('');
-  
+  const [loading, setLoading] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+
   const videoRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
 
-  const startCamera = useCallback(async () => {
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
+  // Start camera only on mount or retry
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError('');
+    setStream(null);
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then(mediaStream => {
+        if (!active) return;
+        setStream(mediaStream);
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+        }
+        setError('');
+      })
+      .catch(err => {
+        setError('Unable to access camera/microphone. Please check permissions and ensure no other app is using them.');
+        setStream(null);
+      })
+      .finally(() => {
+        setLoading(false);
       });
-      
-      setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
+    return () => {
+      active = false;
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
       }
-      setError('');
-    } catch (err) {
-      setError('Unable to access camera. Please check permissions.');
-      console.error('Error accessing camera:', err);
-    }
-  }, []);
-
-  const stopCamera = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-  }, [stream]);
+    };
+    // eslint-disable-next-line
+  }, [retryKey]);
 
   const startRecording = useCallback(() => {
     if (!stream) return;
-
     chunksRef.current = [];
     const mediaRecorder = new MediaRecorder(stream, {
       mimeType: 'video/webm;codecs=vp9'
     });
-
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
         chunksRef.current.push(event.data);
       }
     };
-
     mediaRecorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: 'video/webm' });
       setRecordedBlob(blob);
       onMediaRecorded(blob);
     };
-
     mediaRecorderRef.current = mediaRecorder;
     mediaRecorder.start();
     setIsRecording(true);
@@ -193,12 +197,12 @@ function VideoRecorder({ onMediaRecorded }) {
     }
   }, [recordedBlob]);
 
-  React.useEffect(() => {
-    startCamera();
-    return () => {
-      stopCamera();
-    };
-  }, [startCamera, stopCamera]);
+  const handleRetry = () => {
+    setRetryKey(k => k + 1);
+    setError('');
+    setRecordedBlob(null);
+    onMediaRecorded(null);
+  };
 
   return (
     <RecorderContainer>
@@ -210,13 +214,20 @@ function VideoRecorder({ onMediaRecorded }) {
             muted
             playsInline
           />
+        ) : loading ? (
+          <Placeholder>
+            <FaVideo size={48} />
+            <div>Initializing camera...</div>
+          </Placeholder>
         ) : (
           <Placeholder>
             <FaVideo size={48} />
             <div>Camera not available</div>
+            <ControlButton onClick={handleRetry} style={{marginTop: 16}}>
+              <FaSync /> Retry
+            </ControlButton>
           </Placeholder>
         )}
-        
         {isRecording && (
           <RecordingIndicator>
             <RecordingDot />
@@ -232,20 +243,18 @@ function VideoRecorder({ onMediaRecorded }) {
       )}
 
       <Controls>
-        {!isRecording && !recordedBlob && (
-          <ControlButton onClick={startRecording} disabled={!stream}>
+        {!isRecording && !recordedBlob && stream && !loading && (
+          <ControlButton onClick={startRecording}>
             <FaPlay />
             Start Recording
           </ControlButton>
         )}
-        
         {isRecording && (
           <ControlButton variant="danger" onClick={stopRecording}>
             <FaStop />
             Stop Recording
           </ControlButton>
         )}
-        
         {recordedBlob && (
           <>
             <ControlButton variant="success" onClick={downloadRecording}>
@@ -264,10 +273,6 @@ function VideoRecorder({ onMediaRecorded }) {
         <PreviewContainer>
           <Status>Recording completed! You can download or record again.</Status>
         </PreviewContainer>
-      )}
-
-      {!stream && !error && (
-        <Status>Initializing camera...</Status>
       )}
     </RecorderContainer>
   );

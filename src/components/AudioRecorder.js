@@ -1,6 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import styled from 'styled-components';
-import { FaPlay, FaStop, FaRedo, FaMicrophone, FaDownload, FaVolumeUp } from 'react-icons/fa';
+import { FaPlay, FaStop, FaRedo, FaMicrophone, FaDownload, FaVolumeUp, FaSync } from 'react-icons/fa';
 
 const RecorderContainer = styled.div`
   margin: 24px 0;
@@ -100,51 +100,59 @@ function AudioRecorder({ onMediaRecorded }) {
   const [stream, setStream] = useState(null);
   const [error, setError] = useState('');
   const [audioLevels, setAudioLevels] = useState(new Array(20).fill(10));
-  
+  const [loading, setLoading] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animationFrameRef = useRef(null);
 
-  const startMicrophone = useCallback(async () => {
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: true
+  // Start mic only on mount or retry
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError('');
+    setStream(null);
+    setAudioLevels(new Array(20).fill(10));
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(mediaStream => {
+        if (!active) return;
+        setStream(mediaStream);
+        setError('');
+      })
+      .catch(err => {
+        setError('Unable to access microphone. Please check permissions and ensure no other app is using it.');
+        setStream(null);
+      })
+      .finally(() => {
+        setLoading(false);
       });
-      
-      setStream(mediaStream);
-      setError('');
-    } catch (err) {
-      setError('Unable to access microphone. Please check permissions.');
-      console.error('Error accessing microphone:', err);
-    }
-  }, []);
-
-  const stopMicrophone = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-  }, [stream]);
+    return () => {
+      active = false;
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+    // eslint-disable-next-line
+  }, [retryKey]);
 
   const updateAudioLevels = useCallback(() => {
     if (analyserRef.current && isRecording) {
       const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
       analyserRef.current.getByteFrequencyData(dataArray);
-      
       const levels = Array.from({ length: 20 }, (_, i) => {
         const index = Math.floor(i * dataArray.length / 20);
         return Math.max(10, (dataArray[index] / 255) * 50);
       });
-      
       setAudioLevels(levels);
       animationFrameRef.current = requestAnimationFrame(updateAudioLevels);
     }
@@ -152,32 +160,27 @@ function AudioRecorder({ onMediaRecorded }) {
 
   const startRecording = useCallback(() => {
     if (!stream) return;
-
     chunksRef.current = [];
     const mediaRecorder = new MediaRecorder(stream, {
       mimeType: 'audio/webm'
     });
-
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
         chunksRef.current.push(event.data);
       }
     };
-
     mediaRecorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
       setRecordedBlob(blob);
       onMediaRecorded(blob);
       setAudioLevels(new Array(20).fill(10));
     };
-
     // Set up audio visualization
     audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioContextRef.current.createMediaStreamSource(stream);
     analyserRef.current = audioContextRef.current.createAnalyser();
     analyserRef.current.fftSize = 256;
     source.connect(analyserRef.current);
-
     mediaRecorderRef.current = mediaRecorder;
     mediaRecorder.start();
     setIsRecording(true);
@@ -210,12 +213,12 @@ function AudioRecorder({ onMediaRecorded }) {
     }
   }, [recordedBlob]);
 
-  React.useEffect(() => {
-    startMicrophone();
-    return () => {
-      stopMicrophone();
-    };
-  }, [startMicrophone, stopMicrophone]);
+  const handleRetry = () => {
+    setRetryKey(k => k + 1);
+    setError('');
+    setRecordedBlob(null);
+    onMediaRecorded(null);
+  };
 
   return (
     <RecorderContainer>
@@ -230,7 +233,6 @@ function AudioRecorder({ onMediaRecorded }) {
             : 'Click "Start Recording" to begin'
           }
         </p>
-        
         <AudioVisualizer>
           {audioLevels.map((height, index) => (
             <AudioBar 
@@ -240,29 +242,30 @@ function AudioRecorder({ onMediaRecorded }) {
             />
           ))}
         </AudioVisualizer>
+        {!stream && !loading && (
+          <ControlButton onClick={handleRetry} style={{marginTop: 16}}>
+            <FaSync /> Retry
+          </ControlButton>
+        )}
       </AudioContainer>
-
       {error && (
         <div className="error" style={{ marginBottom: '16px' }}>
           {error}
         </div>
       )}
-
       <Controls>
-        {!isRecording && !recordedBlob && (
-          <ControlButton onClick={startRecording} disabled={!stream}>
+        {!isRecording && !recordedBlob && stream && !loading && (
+          <ControlButton onClick={startRecording}>
             <FaPlay />
             Start Recording
           </ControlButton>
         )}
-        
         {isRecording && (
           <ControlButton variant="danger" onClick={stopRecording}>
             <FaStop />
             Stop Recording
           </ControlButton>
         )}
-        
         {recordedBlob && (
           <>
             <ControlButton variant="success" onClick={downloadRecording}>
@@ -276,7 +279,6 @@ function AudioRecorder({ onMediaRecorded }) {
           </>
         )}
       </Controls>
-
       {recordedBlob && (
         <AudioPreview>
           <h4 style={{ margin: '0 0 16px 0', color: '#333' }}>
@@ -288,10 +290,6 @@ function AudioRecorder({ onMediaRecorded }) {
             Your browser does not support the audio element.
           </AudioPlayer>
         </AudioPreview>
-      )}
-
-      {!stream && !error && (
-        <Status>Initializing microphone...</Status>
       )}
     </RecorderContainer>
   );
