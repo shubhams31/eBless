@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/eblessings/static/css/main.121ed03c.css",
-    "main.js": "/eblessings/static/js/main.f0511d0b.js",
-    "index.html": "/eblessings/index.html",
-    "main.121ed03c.css.map": "/eblessings/static/css/main.121ed03c.css.map",
-    "main.f0511d0b.js.map": "/eblessings/static/js/main.f0511d0b.js.map"
+    "main.css": "/eBless/static/css/main.121ed03c.css",
+    "main.js": "/eBless/static/js/main.c1407ebb.js",
+    "index.html": "/eBless/index.html",
+    "main.121ed03c.css.map": "/eBless/static/css/main.121ed03c.css.map",
+    "main.c1407ebb.js.map": "/eBless/static/js/main.c1407ebb.js.map"
   },
   "entrypoints": [
     "static/css/main.121ed03c.css",
-    "static/js/main.f0511d0b.js"
+    "static/js/main.c1407ebb.js"
   ]
 }
