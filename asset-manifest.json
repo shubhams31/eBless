@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/eblessings/static/css/main.121ed03c.css",
+    "main.js": "/eblessings/static/js/main.f0511d0b.js",
+    "index.html": "/eblessings/index.html",
+    "main.121ed03c.css.map": "/eblessings/static/css/main.121ed03c.css.map",
+    "main.f0511d0b.js.map": "/eblessings/static/js/main.f0511d0b.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.121ed03c.css",
+    "static/js/main.f0511d0b.js"
+  ]
+}
