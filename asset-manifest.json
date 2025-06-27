@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/eBless/static/css/main.121ed03c.css",
-    "main.js": "/eBless/static/js/main.976eb33d.js",
+    "main.js": "/eBless/static/js/main.7a73cb0d.js",
     "index.html": "/eBless/index.html",
     "main.121ed03c.css.map": "/eBless/static/css/main.121ed03c.css.map",
-    "main.976eb33d.js.map": "/eBless/static/js/main.976eb33d.js.map"
+    "main.7a73cb0d.js.map": "/eBless/static/js/main.7a73cb0d.js.map"
   },
   "entrypoints": [
     "static/css/main.121ed03c.css",
-    "static/js/main.976eb33d.js"
+    "static/js/main.7a73cb0d.js"
   ]
 }
